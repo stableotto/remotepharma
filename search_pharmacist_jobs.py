@@ -183,17 +183,36 @@ if len(jobs) > 0:
                 elif "slug" in transformed_jobs[0] and transformed_jobs[0]["slug"]:
                     conflict_key = "slug"
             
+            print(f"\n📤 Uploading {len(transformed_jobs)} jobs to Supabase...")
+            print(f"   Table: {table_name}")
+            print(f"   Conflict key: {conflict_key}")
+            if transformed_jobs:
+                print(f"   Sample job keys: {list(transformed_jobs[0].keys())[:10]}")
+            
             response = supabase.table(table_name).upsert(
                 transformed_jobs,
                 on_conflict=conflict_key
             ).execute()
             
-            print(f"\n✅ Successfully uploaded {len(jobs_list)} jobs to Supabase")
-            print(f"   Table: {table_name}")
+            # Check response
+            if hasattr(response, 'data'):
+                inserted_count = len(response.data) if response.data else 0
+                print(f"\n✅ Successfully uploaded {inserted_count} jobs to Supabase")
+                print(f"   Table: {table_name}")
+                if response.data and len(response.data) > 0:
+                    print(f"   First job title: {response.data[0].get('title', 'N/A')}")
+            else:
+                print(f"\n✅ Upsert completed (response: {type(response)})")
+                print(f"   Table: {table_name}")
             
         except Exception as e:
-            print(f"\n❌ Error uploading to Supabase: {str(e)}")
-            print("   Continuing with local file saves...")
+            import traceback
+            print(f"\n❌ Error uploading to Supabase:")
+            print(f"   Error: {str(e)}")
+            print(f"   Error type: {type(e).__name__}")
+            print(f"\n   Full traceback:")
+            traceback.print_exc()
+            print("\n   Continuing with local file saves...")
     elif supabase_url or supabase_key:
         print("\n⚠️  Supabase credentials found but client not installed.")
         print("   Install with: pip install supabase")
