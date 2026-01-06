@@ -118,6 +118,22 @@ if len(jobs) > 0:
                 
                 # Custom transformations for jobs table schema
                 if table_name == "jobs":
+                    # Map interval to salary_type BEFORE other transformations
+                    if "interval" in transformed_job and "salary_type" not in transformed_job:
+                        interval = transformed_job.pop("interval", None)
+                        if interval:
+                            interval_lower = str(interval).lower()
+                            if interval_lower in ["yearly", "annual"]:
+                                transformed_job["salary_type"] = "yearly"
+                            elif interval_lower in ["monthly"]:
+                                transformed_job["salary_type"] = "monthly"
+                            elif interval_lower in ["hourly"]:
+                                transformed_job["salary_type"] = "hourly"
+                            elif interval_lower in ["weekly"]:
+                                transformed_job["salary_type"] = "weekly"
+                            else:
+                                transformed_job["salary_type"] = "yearly"  # Default
+                    
                     # Generate slug from title if not present
                     if "slug" not in transformed_job and "title" in transformed_job:
                         import re
@@ -138,12 +154,12 @@ if len(jobs) > 0:
                     if "job_type" in transformed_job:
                         job_type = transformed_job["job_type"]
                         if job_type:
-                            job_type = job_type.lower().replace("fulltime", "full-time").replace("parttime", "part-time")
+                            job_type = str(job_type).lower().replace("fulltime", "full-time").replace("parttime", "part-time")
                             transformed_job["job_type"] = job_type
                     
-                    # Normalize salary_type: "yearly" -> "yearly" (already correct)
+                    # Normalize salary_type if it exists
                     if "salary_type" in transformed_job:
-                        salary_type = transformed_job.get("salary_type", "").lower()
+                        salary_type = str(transformed_job.get("salary_type", "")).lower()
                         if salary_type in ["yearly", "annual"]:
                             transformed_job["salary_type"] = "yearly"
                         elif salary_type in ["monthly"]:
@@ -159,14 +175,15 @@ if len(jobs) > 0:
                         # Remove is_remote as it doesn't exist in jobs table
                         transformed_job.pop("is_remote", None)
                     
-                    # Remove fields that don't exist in jobs table
+                    # Remove fields that don't exist in jobs table (including interval)
                     fields_to_remove = ["site", "job_url_direct", "location", "salary_source", 
                                        "currency", "job_level", "job_function", "listing_type", 
                                        "emails", "company_industry", "company_url", "company_logo",
                                        "company_url_direct", "company_addresses", "company_num_employees",
                                        "company_revenue", "company_description", "skills", 
                                        "experience_range", "company_rating", "company_reviews_count",
-                                       "vacancy_count", "work_from_home_type", "company", "id"]
+                                       "vacancy_count", "work_from_home_type", "company", "id",
+                                       "interval", "scraped_at"]  # Added interval and scraped_at
                     for field in fields_to_remove:
                         transformed_job.pop(field, None)
                 
