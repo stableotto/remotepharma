@@ -100,12 +100,92 @@ if len(jobs) > 0:
             jobs_list = processed_jobs
             
             # Upsert jobs (insert or update if exists)
-            # Using job_url as unique identifier
             # Table name can be configured via environment variable
             table_name = os.getenv("SUPABASE_TABLE_NAME", "pharmacist_jobs")
+            
+            # Transform jobs for custom schema if needed
+            transformed_jobs = []
+            for job in jobs_list:
+                transformed_job = {}
+                
+                # Apply field mapping if configured
+                if FIELD_MAPPING:
+                    for key, value in job.items():
+                        new_key = FIELD_MAPPING.get(key, key)
+                        transformed_job[new_key] = value
+                else:
+                    transformed_job = job.copy()
+                
+                # Custom transformations for jobs table schema
+                if table_name == "jobs":
+                    # Generate slug from title if not present
+                    if "slug" not in transformed_job and "title" in transformed_job:
+                        import re
+                        title = transformed_job.get("title", "")
+                        slug = re.sub(r'[^\w\s-]', '', title.lower())
+                        slug = re.sub(r'[-\s]+', '-', slug)
+                        transformed_job["slug"] = slug[:100]  # Limit length
+                    
+                    # Map date_posted to posted_at
+                    if "date_posted" in transformed_job and "posted_at" not in transformed_job:
+                        transformed_job["posted_at"] = transformed_job.pop("date_posted", None)
+                    
+                    # Set default status if not present
+                    if "status" not in transformed_job:
+                        transformed_job["status"] = "pending"
+                    
+                    # Normalize job_type: "fulltime" -> "full-time"
+                    if "job_type" in transformed_job:
+                        job_type = transformed_job["job_type"]
+                        if job_type:
+                            job_type = job_type.lower().replace("fulltime", "full-time").replace("parttime", "part-time")
+                            transformed_job["job_type"] = job_type
+                    
+                    # Normalize salary_type: "yearly" -> "yearly" (already correct)
+                    if "salary_type" in transformed_job:
+                        salary_type = transformed_job.get("salary_type", "").lower()
+                        if salary_type in ["yearly", "annual"]:
+                            transformed_job["salary_type"] = "yearly"
+                        elif salary_type in ["monthly"]:
+                            transformed_job["salary_type"] = "monthly"
+                        elif salary_type in ["hourly"]:
+                            transformed_job["salary_type"] = "hourly"
+                    
+                    # Map is_remote to is_featured if needed (or remove if not applicable)
+                    if "is_remote" in transformed_job:
+                        # Only set is_featured if is_remote is True
+                        if transformed_job.get("is_remote"):
+                            transformed_job["is_featured"] = True
+                        # Remove is_remote as it doesn't exist in jobs table
+                        transformed_job.pop("is_remote", None)
+                    
+                    # Remove fields that don't exist in jobs table
+                    fields_to_remove = ["site", "job_url_direct", "location", "salary_source", 
+                                       "currency", "job_level", "job_function", "listing_type", 
+                                       "emails", "company_industry", "company_url", "company_logo",
+                                       "company_url_direct", "company_addresses", "company_num_employees",
+                                       "company_revenue", "company_description", "skills", 
+                                       "experience_range", "company_rating", "company_reviews_count",
+                                       "vacancy_count", "work_from_home_type", "company", "id"]
+                    for field in fields_to_remove:
+                        transformed_job.pop(field, None)
+                
+                transformed_jobs.append(transformed_job)
+            
+            # Determine conflict key based on table
+            conflict_key = "application_url" if table_name == "jobs" else "job_url"
+            
+            # Use application_url for upsert if it exists, otherwise try slug
+            if table_name == "jobs" and transformed_jobs:
+                # Check if application_url exists in first job
+                if "application_url" in transformed_jobs[0] and transformed_jobs[0]["application_url"]:
+                    conflict_key = "application_url"
+                elif "slug" in transformed_jobs[0] and transformed_jobs[0]["slug"]:
+                    conflict_key = "slug"
+            
             response = supabase.table(table_name).upsert(
-                jobs_list,
-                on_conflict="job_url"
+                transformed_jobs,
+                on_conflict=conflict_key
             ).execute()
             
             print(f"\n✅ Successfully uploaded {len(jobs_list)} jobs to Supabase")
