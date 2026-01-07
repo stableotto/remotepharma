@@ -123,14 +123,31 @@ if len(jobs) > 0:
                         interval = transformed_job.pop("interval", None)
                         if interval:
                             interval_lower = str(interval).lower()
-                            if interval_lower in ["yearly", "annual"]:
-                                transformed_job["salary_type"] = "yearly"
-                            elif interval_lower in ["monthly"]:
-                                transformed_job["salary_type"] = "monthly"
-                            elif interval_lower in ["hourly"]:
+                            if interval_lower in ["hourly", "hour", "hr"]:
                                 transformed_job["salary_type"] = "hourly"
-                            elif interval_lower in ["weekly"]:
-                                transformed_job["salary_type"] = "weekly"
+                            elif interval_lower in ["yearly", "annual", "year"]:
+                                transformed_job["salary_type"] = "yearly"
+                            elif interval_lower in ["monthly", "month"]:
+                                # Convert to yearly and adjust salary
+                                transformed_job["salary_type"] = "yearly"
+                                if "salary_min" in transformed_job and transformed_job["salary_min"]:
+                                    transformed_job["salary_min"] = transformed_job["salary_min"] * 12
+                                if "salary_max" in transformed_job and transformed_job["salary_max"]:
+                                    transformed_job["salary_max"] = transformed_job["salary_max"] * 12
+                            elif interval_lower in ["weekly", "week"]:
+                                # Convert to yearly and adjust salary
+                                transformed_job["salary_type"] = "yearly"
+                                if "salary_min" in transformed_job and transformed_job["salary_min"]:
+                                    transformed_job["salary_min"] = transformed_job["salary_min"] * 52
+                                if "salary_max" in transformed_job and transformed_job["salary_max"]:
+                                    transformed_job["salary_max"] = transformed_job["salary_max"] * 52
+                            elif interval_lower in ["daily", "day"]:
+                                # Convert to yearly and adjust salary (260 working days)
+                                transformed_job["salary_type"] = "yearly"
+                                if "salary_min" in transformed_job and transformed_job["salary_min"]:
+                                    transformed_job["salary_min"] = transformed_job["salary_min"] * 260
+                                if "salary_max" in transformed_job and transformed_job["salary_max"]:
+                                    transformed_job["salary_max"] = transformed_job["salary_max"] * 260
                             else:
                                 transformed_job["salary_type"] = "yearly"  # Default
 
