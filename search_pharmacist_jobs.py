@@ -169,25 +169,40 @@ if len(jobs) > 0:
                             )
                             transformed_job["job_type"] = job_type
 
-                    # Normalize salary_type if it exists - must match database check constraint
-                    # Common allowed values: 'yearly', 'monthly', 'hourly', 'weekly', 'daily', or NULL
+                    # Normalize salary_type - database constraint only allows 'hourly' or 'yearly'
+                    # CHECK constraint: salary_type = ANY (ARRAY['hourly'::text, 'yearly'::text])
                     if "salary_type" in transformed_job:
                         salary_type = str(transformed_job.get("salary_type", "")).lower().strip()
-                        if salary_type in ["yearly", "annual", "year"]:
-                            transformed_job["salary_type"] = "yearly"
-                        elif salary_type in ["monthly", "month"]:
-                            transformed_job["salary_type"] = "monthly"
-                        elif salary_type in ["hourly", "hour"]:
+                        if salary_type in ["hourly", "hour", "hr", "hrly"]:
                             transformed_job["salary_type"] = "hourly"
-                        elif salary_type in ["weekly", "week"]:
-                            transformed_job["salary_type"] = "weekly"
+                        elif salary_type in ["yearly", "annual", "year", "yr"]:
+                            transformed_job["salary_type"] = "yearly"
+                        elif salary_type in ["monthly", "month", "mo"]:
+                            # Convert monthly to yearly (multiply by 12)
+                            transformed_job["salary_type"] = "yearly"
+                            if "salary_min" in transformed_job and transformed_job["salary_min"]:
+                                transformed_job["salary_min"] = transformed_job["salary_min"] * 12
+                            if "salary_max" in transformed_job and transformed_job["salary_max"]:
+                                transformed_job["salary_max"] = transformed_job["salary_max"] * 12
+                        elif salary_type in ["weekly", "week", "wk"]:
+                            # Convert weekly to yearly (multiply by 52)
+                            transformed_job["salary_type"] = "yearly"
+                            if "salary_min" in transformed_job and transformed_job["salary_min"]:
+                                transformed_job["salary_min"] = transformed_job["salary_min"] * 52
+                            if "salary_max" in transformed_job and transformed_job["salary_max"]:
+                                transformed_job["salary_max"] = transformed_job["salary_max"] * 52
                         elif salary_type in ["daily", "day"]:
-                            transformed_job["salary_type"] = "daily"
+                            # Convert daily to yearly (multiply by 260 working days)
+                            transformed_job["salary_type"] = "yearly"
+                            if "salary_min" in transformed_job and transformed_job["salary_min"]:
+                                transformed_job["salary_min"] = transformed_job["salary_min"] * 260
+                            if "salary_max" in transformed_job and transformed_job["salary_max"]:
+                                transformed_job["salary_max"] = transformed_job["salary_max"] * 260
                         elif not salary_type or salary_type == "none" or salary_type == "null":
                             # Remove salary_type if invalid/empty (let it be NULL)
                             transformed_job.pop("salary_type", None)
                         else:
-                            # Unknown value - default to yearly or remove
+                            # Unknown value - default to yearly
                             print(f"   Warning: Unknown salary_type '{salary_type}', defaulting to yearly")
                             transformed_job["salary_type"] = "yearly"
 
