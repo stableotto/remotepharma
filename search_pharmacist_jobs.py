@@ -155,6 +155,10 @@ if len(jobs) > 0:
                     # Set default status if not present - set to approved so jobs appear immediately
                     if "status" not in transformed_job:
                         transformed_job["status"] = "approved"
+                    
+                    # Ensure description is never null (required field)
+                    if "description" not in transformed_job or not transformed_job.get("description"):
+                        transformed_job["description"] = "No description available."
 
                     # Normalize job_type: "fulltime" -> "full-time"
                     if "job_type" in transformed_job:
