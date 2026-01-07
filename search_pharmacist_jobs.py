@@ -234,6 +234,23 @@ if len(jobs) > 0:
                     for field in fields_to_remove:
                         transformed_job.pop(field, None)
 
+                    # Ensure all required fields have values before whitelisting
+                    # Description is required (NOT NULL constraint)
+                    if "description" not in transformed_job or not transformed_job.get("description"):
+                        transformed_job["description"] = "No description available."
+                    
+                    # Title is likely required
+                    if "title" not in transformed_job or not transformed_job.get("title"):
+                        transformed_job["title"] = "Untitled Job"
+                    
+                    # Slug should already be generated, but ensure it exists
+                    if "slug" not in transformed_job or not transformed_job.get("slug"):
+                        import re
+                        title = transformed_job.get("title", "untitled-job")
+                        slug = re.sub(r"[^\w\s-]", "", title.lower())
+                        slug = re.sub(r"[-\s]+", "-", slug)
+                        transformed_job["slug"] = slug[:100] if slug else "untitled-job"
+                    
                     # Whitelist only columns that exist in jobs table
                     allowed_fields = {
                         "id",
