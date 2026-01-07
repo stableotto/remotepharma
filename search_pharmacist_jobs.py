@@ -183,6 +183,20 @@ if len(jobs) > 0:
                         # Remove is_remote as it doesn't exist in jobs table
                         transformed_job.pop("is_remote", None)
 
+                    # Map min_amount/max_amount to salary_min/salary_max and remove originals
+                    if "min_amount" in transformed_job and "salary_min" not in transformed_job:
+                        try:
+                            transformed_job["salary_min"] = int(transformed_job["min_amount"])
+                        except (TypeError, ValueError):
+                            transformed_job["salary_min"] = None
+                    if "max_amount" in transformed_job and "salary_max" not in transformed_job:
+                        try:
+                            transformed_job["salary_max"] = int(transformed_job["max_amount"])
+                        except (TypeError, ValueError):
+                            transformed_job["salary_max"] = None
+                    transformed_job.pop("min_amount", None)
+                    transformed_job.pop("max_amount", None)
+
                     # Remove fields that don't exist in jobs table (including interval)
                     fields_to_remove = [
                         "site",
@@ -216,7 +230,36 @@ if len(jobs) > 0:
                     for field in fields_to_remove:
                         transformed_job.pop(field, None)
 
-                transformed_jobs.append(transformed_job)
+                    # Whitelist only columns that exist in jobs table
+                    allowed_fields = {
+                        "id",
+                        "title",
+                        "slug",
+                        "description",
+                        "company_id",
+                        "requirements",
+                        "benefits",
+                        "salary_min",
+                        "salary_max",
+                        "salary_type",
+                        "job_type",
+                        "experience_level",
+                        "schedule_flexibility",
+                        "application_url",
+                        "application_email",
+                        "status",
+                        "is_featured",
+                        "posted_by",
+                        "posted_at",
+                        "approved_at",
+                        "expires_at",
+                        "created_at",
+                        "updated_at",
+                    }
+                    final_job = {k: v for k, v in transformed_job.items() if k in allowed_fields}
+                    transformed_jobs.append(final_job)
+                else:
+                    transformed_jobs.append(transformed_job)
             
             # Determine conflict key based on table
             conflict_key = "application_url" if table_name == "jobs" else "job_url"
