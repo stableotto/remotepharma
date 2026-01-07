@@ -107,7 +107,7 @@ if len(jobs) > 0:
             transformed_jobs = []
             for job in jobs_list:
                 transformed_job = {}
-                
+
                 # Apply field mapping if configured
                 if FIELD_MAPPING:
                     for key, value in job.items():
@@ -115,7 +115,7 @@ if len(jobs) > 0:
                         transformed_job[new_key] = value
                 else:
                     transformed_job = job.copy()
-                
+
                 # Custom transformations for jobs table schema
                 if table_name == "jobs":
                     # Map interval to salary_type BEFORE other transformations
@@ -133,30 +133,38 @@ if len(jobs) > 0:
                                 transformed_job["salary_type"] = "weekly"
                             else:
                                 transformed_job["salary_type"] = "yearly"  # Default
-                    
+
+                    # Map job_url to application_url and remove job_url
+                    if "job_url" in transformed_job and "application_url" not in transformed_job:
+                        transformed_job["application_url"] = transformed_job["job_url"]
+                    # Always remove job_url for jobs table (column doesn't exist)
+                    transformed_job.pop("job_url", None)
+
                     # Generate slug from title if not present
                     if "slug" not in transformed_job and "title" in transformed_job:
                         import re
                         title = transformed_job.get("title", "")
-                        slug = re.sub(r'[^\w\s-]', '', title.lower())
-                        slug = re.sub(r'[-\s]+', '-', slug)
+                        slug = re.sub(r"[^\w\s-]", "", title.lower())
+                        slug = re.sub(r"[-\s]+", "-", slug)
                         transformed_job["slug"] = slug[:100]  # Limit length
-                    
+
                     # Map date_posted to posted_at
                     if "date_posted" in transformed_job and "posted_at" not in transformed_job:
                         transformed_job["posted_at"] = transformed_job.pop("date_posted", None)
-                    
+
                     # Set default status if not present
                     if "status" not in transformed_job:
                         transformed_job["status"] = "pending"
-                    
+
                     # Normalize job_type: "fulltime" -> "full-time"
                     if "job_type" in transformed_job:
                         job_type = transformed_job["job_type"]
                         if job_type:
-                            job_type = str(job_type).lower().replace("fulltime", "full-time").replace("parttime", "part-time")
+                            job_type = str(job_type).lower().replace("fulltime", "full-time").replace(
+                                "parttime", "part-time"
+                            )
                             transformed_job["job_type"] = job_type
-                    
+
                     # Normalize salary_type if it exists
                     if "salary_type" in transformed_job:
                         salary_type = str(transformed_job.get("salary_type", "")).lower()
@@ -166,7 +174,7 @@ if len(jobs) > 0:
                             transformed_job["salary_type"] = "monthly"
                         elif salary_type in ["hourly"]:
                             transformed_job["salary_type"] = "hourly"
-                    
+
                     # Map is_remote to is_featured if needed (or remove if not applicable)
                     if "is_remote" in transformed_job:
                         # Only set is_featured if is_remote is True
@@ -174,19 +182,40 @@ if len(jobs) > 0:
                             transformed_job["is_featured"] = True
                         # Remove is_remote as it doesn't exist in jobs table
                         transformed_job.pop("is_remote", None)
-                    
+
                     # Remove fields that don't exist in jobs table (including interval)
-                    fields_to_remove = ["site", "job_url_direct", "location", "salary_source", 
-                                       "currency", "job_level", "job_function", "listing_type", 
-                                       "emails", "company_industry", "company_url", "company_logo",
-                                       "company_url_direct", "company_addresses", "company_num_employees",
-                                       "company_revenue", "company_description", "skills", 
-                                       "experience_range", "company_rating", "company_reviews_count",
-                                       "vacancy_count", "work_from_home_type", "company", "id",
-                                       "interval", "scraped_at"]  # Added interval and scraped_at
+                    fields_to_remove = [
+                        "site",
+                        "job_url_direct",
+                        "location",
+                        "salary_source",
+                        "currency",
+                        "job_level",
+                        "job_function",
+                        "listing_type",
+                        "emails",
+                        "company_industry",
+                        "company_url",
+                        "company_logo",
+                        "company_url_direct",
+                        "company_addresses",
+                        "company_num_employees",
+                        "company_revenue",
+                        "company_description",
+                        "skills",
+                        "experience_range",
+                        "company_rating",
+                        "company_reviews_count",
+                        "vacancy_count",
+                        "work_from_home_type",
+                        "company",
+                        "id",
+                        "interval",
+                        "scraped_at",
+                    ]  # Added interval and scraped_at
                     for field in fields_to_remove:
                         transformed_job.pop(field, None)
-                
+
                 transformed_jobs.append(transformed_job)
             
             # Determine conflict key based on table

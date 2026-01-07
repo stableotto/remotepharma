@@ -37,3 +37,7 @@ credentials.json
 *secret*
 *key*
 *credential*
+
+# Markdown docs (keep main README)
+*.md
+!README.md
