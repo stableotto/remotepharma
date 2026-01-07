@@ -169,15 +169,27 @@ if len(jobs) > 0:
                             )
                             transformed_job["job_type"] = job_type
 
-                    # Normalize salary_type if it exists
+                    # Normalize salary_type if it exists - must match database check constraint
+                    # Common allowed values: 'yearly', 'monthly', 'hourly', 'weekly', 'daily', or NULL
                     if "salary_type" in transformed_job:
-                        salary_type = str(transformed_job.get("salary_type", "")).lower()
-                        if salary_type in ["yearly", "annual"]:
+                        salary_type = str(transformed_job.get("salary_type", "")).lower().strip()
+                        if salary_type in ["yearly", "annual", "year"]:
                             transformed_job["salary_type"] = "yearly"
-                        elif salary_type in ["monthly"]:
+                        elif salary_type in ["monthly", "month"]:
                             transformed_job["salary_type"] = "monthly"
-                        elif salary_type in ["hourly"]:
+                        elif salary_type in ["hourly", "hour"]:
                             transformed_job["salary_type"] = "hourly"
+                        elif salary_type in ["weekly", "week"]:
+                            transformed_job["salary_type"] = "weekly"
+                        elif salary_type in ["daily", "day"]:
+                            transformed_job["salary_type"] = "daily"
+                        elif not salary_type or salary_type == "none" or salary_type == "null":
+                            # Remove salary_type if invalid/empty (let it be NULL)
+                            transformed_job.pop("salary_type", None)
+                        else:
+                            # Unknown value - default to yearly or remove
+                            print(f"   Warning: Unknown salary_type '{salary_type}', defaulting to yearly")
+                            transformed_job["salary_type"] = "yearly"
 
                     # Map is_remote to is_featured if needed (or remove if not applicable)
                     if "is_remote" in transformed_job:
