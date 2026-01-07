@@ -261,30 +261,26 @@ if len(jobs) > 0:
                 else:
                     transformed_jobs.append(transformed_job)
             
-            # Determine conflict key based on table
-            conflict_key = "application_url" if table_name == "jobs" else "job_url"
-            
-            # Use application_url for upsert if it exists, otherwise try slug
-            if table_name == "jobs" and transformed_jobs:
-                # Check if application_url exists in first job
-                if "application_url" in transformed_jobs[0] and transformed_jobs[0]["application_url"]:
-                    conflict_key = "application_url"
-                elif "slug" in transformed_jobs[0] and transformed_jobs[0]["slug"]:
-                    conflict_key = "slug"
-            
+            # For jobs table, insert without explicit on_conflict
+            # (primary key/constraints will handle uniqueness)
             print(f"\n📤 Uploading {len(transformed_jobs)} jobs to Supabase...")
             print(f"   Table: {table_name}")
-            print(f"   Conflict key: {conflict_key}")
             if transformed_jobs:
                 print(f"   Sample job keys: {list(transformed_jobs[0].keys())[:10]}")
-            
-            response = supabase.table(table_name).upsert(
-                transformed_jobs,
-                on_conflict=conflict_key
-            ).execute()
-            
+
+            if table_name == "jobs":
+                # No explicit on_conflict – rely on primary key and let duplicates be handled later if needed
+                response = supabase.table(table_name).upsert(transformed_jobs).execute()
+            else:
+                # Determine conflict key for other tables
+                conflict_key = "job_url"
+                response = supabase.table(table_name).upsert(
+                    transformed_jobs,
+                    on_conflict=conflict_key,
+                ).execute()
+
             # Check response
-            if hasattr(response, 'data'):
+            if hasattr(response, "data"):
                 inserted_count = len(response.data) if response.data else 0
                 print(f"\n✅ Successfully uploaded {inserted_count} jobs to Supabase")
                 print(f"   Table: {table_name}")
