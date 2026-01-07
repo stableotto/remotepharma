@@ -152,9 +152,9 @@ if len(jobs) > 0:
                     if "date_posted" in transformed_job and "posted_at" not in transformed_job:
                         transformed_job["posted_at"] = transformed_job.pop("date_posted", None)
 
-                    # Set default status if not present
+                    # Set default status if not present - set to approved so jobs appear immediately
                     if "status" not in transformed_job:
-                        transformed_job["status"] = "pending"
+                        transformed_job["status"] = "approved"
 
                     # Normalize job_type: "fulltime" -> "full-time"
                     if "job_type" in transformed_job:
