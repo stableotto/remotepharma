@@ -35,8 +35,10 @@ print("Searching for remote pharmacist jobs...")
 jobs = scrape_jobs(
     site_name=["indeed", "linkedin", "zip_recruiter", "glassdoor", "google"],
     search_term="pharmacist",
+    google_search_term="pharmacist jobs remote in the last month",  # Specific Google Jobs query
     is_remote=True,  # Filter for remote jobs only
-    results_wanted=50,  # Get more results
+    results_wanted=50,  # Get more results per site
+    hours_old=720,  # Only jobs from last 30 days (720 hours) - applies to most sites
     country_indeed='USA',
     verbose=1,  # Show progress
 )
@@ -45,6 +47,15 @@ print(f"\nFound {len(jobs)} remote pharmacist jobs")
 print("\n" + "="*80)
 print(jobs.head(20).to_string())
 print("="*80)
+
+# Remove duplicates within this scrape (same application_url)
+if len(jobs) > 0:
+    initial_count = len(jobs)
+    jobs = jobs.drop_duplicates(subset=['application_url'], keep='first')
+    duplicates_removed = initial_count - len(jobs)
+    if duplicates_removed > 0:
+        print(f"\nRemoved {duplicates_removed} duplicate jobs (same application_url)")
+    print(f"Unique jobs after deduplication: {len(jobs)}")
 
 # Save to CSV and JSON
 if len(jobs) > 0:
@@ -366,8 +377,21 @@ if len(jobs) > 0:
                 print(f"   Sample job keys: {list(transformed_jobs[0].keys())[:10]}")
 
             if table_name == "jobs":
-                # No explicit on_conflict – rely on primary key and let duplicates be handled later if needed
-                response = supabase.table(table_name).upsert(transformed_jobs).execute()
+                # Use application_url for conflict resolution (prevents duplicates)
+                # Requires unique constraint on application_url - see ADD_UNIQUE_CONSTRAINT.sql
+                try:
+                    response = supabase.table(table_name).upsert(
+                        transformed_jobs,
+                        on_conflict="application_url"
+                    ).execute()
+                except Exception as conflict_error:
+                    # If constraint doesn't exist yet, fall back to regular insert
+                    if "unique" in str(conflict_error).lower() or "constraint" in str(conflict_error).lower():
+                        print(f"   Note: Unique constraint on application_url not found. Run ADD_UNIQUE_CONSTRAINT.sql first.")
+                        print(f"   Inserting without conflict resolution (may create duplicates)...")
+                        response = supabase.table(table_name).insert(transformed_jobs).execute()
+                    else:
+                        raise
             else:
                 # Determine conflict key for other tables
                 conflict_key = "job_url"
