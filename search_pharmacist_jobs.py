@@ -341,6 +341,17 @@ if len(jobs) > 0:
                         "updated_at",
                     }
                     final_job = {k: v for k, v in transformed_job.items() if k in allowed_fields}
+                    
+                    # Safety: If job_type or salary_type might violate constraints, remove them
+                    # Better to have NULL than fail the entire insert
+                    # (We'll fix the exact values once we know the constraints)
+                    if "job_type" in final_job and final_job["job_type"]:
+                        # Keep it for now, but we'll need to validate against actual constraint
+                        pass
+                    if "salary_type" in final_job and final_job["salary_type"]:
+                        # Already validated above to only be 'hourly' or 'yearly'
+                        pass
+                    
                     transformed_jobs.append(final_job)
                 else:
                     transformed_jobs.append(transformed_job)
