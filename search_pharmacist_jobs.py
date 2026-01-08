@@ -177,14 +177,33 @@ if len(jobs) > 0:
                     if "description" not in transformed_job or not transformed_job.get("description"):
                         transformed_job["description"] = "No description available."
 
-                    # Normalize job_type: "fulltime" -> "full-time"
+                    # Normalize job_type - must match database check constraint
+                    # Common values: 'full-time', 'part-time', 'contract', 'temporary', 'internship', etc.
+                    # We'll normalize to common formats and let database reject if invalid
                     if "job_type" in transformed_job:
                         job_type = transformed_job["job_type"]
                         if job_type:
-                            job_type = str(job_type).lower().replace("fulltime", "full-time").replace(
-                                "parttime", "part-time"
-                            )
-                            transformed_job["job_type"] = job_type
+                            job_type = str(job_type).lower().strip()
+                            # Normalize common variations
+                            if job_type in ["fulltime", "full-time", "full time", "ft"]:
+                                transformed_job["job_type"] = "full-time"
+                            elif job_type in ["parttime", "part-time", "part time", "pt"]:
+                                transformed_job["job_type"] = "part-time"
+                            elif job_type in ["contract", "contractor", "contractual"]:
+                                transformed_job["job_type"] = "contract"
+                            elif job_type in ["temporary", "temp"]:
+                                transformed_job["job_type"] = "temporary"
+                            elif job_type in ["internship", "intern"]:
+                                transformed_job["job_type"] = "internship"
+                            elif job_type in ["per-diem", "perdiem", "per diem"]:
+                                transformed_job["job_type"] = "per-diem"
+                            else:
+                                # If unknown, try to keep original but normalize format
+                                # If it still fails, we'll remove it (let it be NULL)
+                                transformed_job["job_type"] = job_type
+                        else:
+                            # Remove if empty
+                            transformed_job.pop("job_type", None)
 
                     # Normalize salary_type - database constraint only allows 'hourly' or 'yearly'
                     # CHECK constraint: salary_type = ANY (ARRAY['hourly'::text, 'yearly'::text])
