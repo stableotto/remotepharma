@@ -178,14 +178,15 @@ if len(jobs) > 0:
                         transformed_job["description"] = "No description available."
 
                     # Normalize job_type - must match database check constraint
-                    # Common values: 'full-time', 'part-time', 'contract', 'temporary', 'internship', etc.
-                    # We'll normalize to common formats and let database reject if invalid
+                    # TEMPORARY: If we can't match known values, remove it to avoid constraint errors
+                    # TODO: Update this once we know the exact allowed values from constraint
                     if "job_type" in transformed_job:
                         job_type = transformed_job["job_type"]
                         if job_type:
                             job_type = str(job_type).lower().strip()
-                            # Normalize common variations
-                            if job_type in ["fulltime", "full-time", "full time", "ft"]:
+                            # Normalize common variations - try to match database constraint
+                            # Common allowed values might be: 'full-time', 'part-time', 'contract', etc.
+                            if job_type in ["fulltime", "full-time", "full time", "ft", "fulltime"]:
                                 transformed_job["job_type"] = "full-time"
                             elif job_type in ["parttime", "part-time", "part time", "pt"]:
                                 transformed_job["job_type"] = "part-time"
@@ -195,12 +196,13 @@ if len(jobs) > 0:
                                 transformed_job["job_type"] = "temporary"
                             elif job_type in ["internship", "intern"]:
                                 transformed_job["job_type"] = "internship"
-                            elif job_type in ["per-diem", "perdiem", "per diem"]:
+                            elif job_type in ["per-diem", "perdiem", "per diem", "perdiem"]:
                                 transformed_job["job_type"] = "per-diem"
                             else:
-                                # If unknown, try to keep original but normalize format
-                                # If it still fails, we'll remove it (let it be NULL)
-                                transformed_job["job_type"] = job_type
+                                # Unknown value - remove it to avoid constraint violation
+                                # Better to have NULL job_type than fail entire insert
+                                print(f"   Warning: Unknown job_type '{job_type}', removing to avoid constraint error")
+                                transformed_job.pop("job_type", None)
                         else:
                             # Remove if empty
                             transformed_job.pop("job_type", None)
