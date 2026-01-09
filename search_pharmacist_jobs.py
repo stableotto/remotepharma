@@ -32,31 +32,56 @@ if os.getenv("SUPABASE_FIELD_MAPPING"):
 
 # Search for remote pharmacist jobs
 print("Searching for remote pharmacist jobs...")
-jobs = scrape_jobs(
-    site_name=["indeed", "linkedin", "zip_recruiter", "glassdoor", "google"],
-    search_term="pharmacist",
-    google_search_term="pharmacist jobs remote in the last month",  # Specific Google Jobs query
-    is_remote=True,  # Filter for remote jobs only
-    results_wanted=50,  # Get more results per site
-    hours_old=720,  # Only jobs from last 30 days (720 hours) - applies to most sites
-    country_indeed='USA',
-    linkedin_fetch_description=True,  # Fetch full descriptions from LinkedIn (slower but gets descriptions)
-    verbose=1,  # Show progress
-)
+try:
+    jobs = scrape_jobs(
+        site_name=["indeed", "linkedin", "zip_recruiter", "glassdoor", "google"],
+        search_term="pharmacist",
+        google_search_term="pharmacist jobs remote in the last month",  # Specific Google Jobs query
+        is_remote=True,  # Filter for remote jobs only
+        results_wanted=50,  # Get more results per site
+        hours_old=720,  # Only jobs from last 30 days (720 hours) - applies to most sites
+        country_indeed='USA',
+        linkedin_fetch_description=True,  # Fetch full descriptions from LinkedIn (slower but gets descriptions)
+        verbose=1,  # Show progress
+    )
+except Exception as e:
+    import traceback
+    print(f"\n❌ Error during job scraping:")
+    print(f"   Error: {str(e)}")
+    print(f"   Error type: {type(e).__name__}")
+    print(f"\n   Full traceback:")
+    traceback.print_exc()
+    sys.exit(1)
 
 print(f"\nFound {len(jobs)} remote pharmacist jobs")
-print("\n" + "="*80)
-print(jobs.head(20).to_string())
-print("="*80)
 
 # Remove duplicates within this scrape (same application_url)
 if len(jobs) > 0:
-    initial_count = len(jobs)
-    jobs = jobs.drop_duplicates(subset=['application_url'], keep='first')
-    duplicates_removed = initial_count - len(jobs)
-    if duplicates_removed > 0:
-        print(f"\nRemoved {duplicates_removed} duplicate jobs (same application_url)")
-    print(f"Unique jobs after deduplication: {len(jobs)}")
+    try:
+        # Check if application_url column exists
+        if 'application_url' in jobs.columns:
+            initial_count = len(jobs)
+            jobs = jobs.drop_duplicates(subset=['application_url'], keep='first')
+            duplicates_removed = initial_count - len(jobs)
+            if duplicates_removed > 0:
+                print(f"Removed {duplicates_removed} duplicate jobs (same application_url)")
+            print(f"Unique jobs after deduplication: {len(jobs)}")
+        else:
+            # If application_url doesn't exist yet, use job_url for deduplication
+            if 'job_url' in jobs.columns:
+                initial_count = len(jobs)
+                jobs = jobs.drop_duplicates(subset=['job_url'], keep='first')
+                duplicates_removed = initial_count - len(jobs)
+                if duplicates_removed > 0:
+                    print(f"Removed {duplicates_removed} duplicate jobs (same job_url)")
+                print(f"Unique jobs after deduplication: {len(jobs)}")
+    except Exception as e:
+        print(f"Warning: Error during deduplication: {e}")
+        print("Continuing with all jobs...")
+    
+    print("\n" + "="*80)
+    print(jobs.head(20).to_string())
+    print("="*80)
 
 # Save to CSV and JSON
 if len(jobs) > 0:
@@ -427,8 +452,11 @@ if len(jobs) > 0:
     # Show summary
     print(f"\nSummary:")
     print(f"  Total jobs found: {len(jobs)}")
-    print(f"  Jobs by site:")
-    print(jobs['site'].value_counts().to_string())
+    if len(jobs) > 0 and 'site' in jobs.columns:
+        print(f"  Jobs by site:")
+        print(jobs['site'].value_counts().to_string())
+    else:
+        print("  No jobs found or site column missing.")
 else:
     print("\nNo jobs found. Try adjusting your search parameters.")
 
