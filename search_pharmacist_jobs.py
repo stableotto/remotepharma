@@ -303,6 +303,16 @@ if len(jobs) > 0:
                     transformed_job.pop("min_amount", None)
                     transformed_job.pop("max_amount", None)
 
+                    # Map company to company_name if company_name field exists in table
+                    # (We'll check allowed_fields later to see if company_name is allowed)
+                    if "company" in transformed_job and transformed_job.get("company"):
+                        # Try to preserve company name - map to company_name if that field exists
+                        # Otherwise we'll remove it since jobs table uses company_id (UUID FK)
+                        company_name = transformed_job.get("company")
+                        # We'll check if company_name is in allowed_fields below
+                        if company_name:
+                            transformed_job["company_name"] = company_name
+                    
                     # Remove fields that don't exist in jobs table (including interval)
                     fields_to_remove = [
                         "site",
@@ -328,7 +338,7 @@ if len(jobs) > 0:
                         "company_reviews_count",
                         "vacancy_count",
                         "work_from_home_type",
-                        "company",
+                        "company",  # Remove original company field
                         "id",
                         "interval",
                         "scraped_at",
@@ -354,12 +364,14 @@ if len(jobs) > 0:
                         transformed_job["slug"] = slug[:100] if slug else "untitled-job"
                     
                     # Whitelist only columns that exist in jobs table
+                    # Note: If your table has a company_name text field, add it here
                     allowed_fields = {
                         "id",
                         "title",
                         "slug",
                         "description",
                         "company_id",
+                        "company_name",  # Add if your jobs table has this field
                         "requirements",
                         "benefits",
                         "salary_min",
