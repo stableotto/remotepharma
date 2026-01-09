@@ -40,6 +40,7 @@ jobs = scrape_jobs(
     results_wanted=50,  # Get more results per site
     hours_old=720,  # Only jobs from last 30 days (720 hours) - applies to most sites
     country_indeed='USA',
+    linkedin_fetch_description=True,  # Fetch full descriptions from LinkedIn (slower but gets descriptions)
     verbose=1,  # Show progress
 )
 
