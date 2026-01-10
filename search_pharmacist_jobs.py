@@ -7,6 +7,7 @@ import os
 import csv
 import json
 from datetime import datetime
+import pandas as pd
 
 # Add the current directory to Python path so we can import jobspy
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -78,6 +79,31 @@ if len(jobs) > 0:
     except Exception as e:
         print(f"Warning: Error during deduplication: {e}")
         print("Continuing with all jobs...")
+    
+    # Sort by date_posted (most recent first)
+    try:
+        if 'date_posted' in jobs.columns:
+            # Convert to datetime if not already, handling various formats
+            jobs['date_posted'] = pd.to_datetime(jobs['date_posted'], errors='coerce')
+            # Sort by date_posted descending (most recent first), then drop rows with null dates to bottom
+            jobs = jobs.sort_values(
+                by='date_posted', 
+                ascending=False, 
+                na_position='last'
+            )
+            print(f"Sorted jobs by date_posted (most recent first)")
+        elif 'posted_at' in jobs.columns:
+            # If posted_at exists instead, use that
+            jobs['posted_at'] = pd.to_datetime(jobs['posted_at'], errors='coerce')
+            jobs = jobs.sort_values(
+                by='posted_at', 
+                ascending=False, 
+                na_position='last'
+            )
+            print(f"Sorted jobs by posted_at (most recent first)")
+    except Exception as e:
+        print(f"Warning: Error during sorting: {e}")
+        print("Continuing without sorting...")
     
     print("\n" + "="*80)
     print(jobs.head(20).to_string())
@@ -432,6 +458,31 @@ if len(jobs) > 0:
                     transformed_jobs.append(final_job)
                 else:
                     transformed_jobs.append(transformed_job)
+            
+            # Sort transformed jobs by posted_at (most recent first) before uploading
+            try:
+                def get_posted_at(job):
+                    """Extract posted_at or date_posted as datetime, return None if not available"""
+                    posted_at = job.get('posted_at') or job.get('date_posted')
+                    if not posted_at:
+                        return None
+                    try:
+                        # Use pandas to parse the date (handles various formats)
+                        parsed = pd.to_datetime(posted_at, errors='coerce')
+                        if pd.isna(parsed):
+                            return None
+                        return parsed.to_pydatetime() if hasattr(parsed, 'to_pydatetime') else parsed
+                    except:
+                        return None
+                
+                # Sort by posted_at descending (most recent first), None values go last
+                transformed_jobs.sort(
+                    key=lambda x: get_posted_at(x) or datetime.min,
+                    reverse=True
+                )
+                print(f"   Sorted {len(transformed_jobs)} jobs by posted_at (most recent first)")
+            except Exception as e:
+                print(f"   Warning: Could not sort jobs by date: {e}")
             
             # For jobs table, insert without explicit on_conflict
             # (primary key/constraints will handle uniqueness)
