@@ -153,6 +153,33 @@ if len(jobs) > 0:
                 else:
                     transformed_job = job.copy()
 
+                # Map company to company_name BEFORE other transformations
+                # The scraper outputs "company" in the DataFrame (mapped from company_name in JobPost)
+                # Check both original job and transformed_job for company field
+                company_name = None
+                if "company" in job:
+                    company_name = job.get("company")
+                elif "company" in transformed_job:
+                    company_name = transformed_job.get("company")
+                elif "company_name" in job:
+                    company_name = job.get("company_name")
+                elif "company_name" in transformed_job:
+                    company_name = transformed_job.get("company_name")
+                
+                # Set company_name if we found a valid company value
+                # Filter out common placeholder values
+                if company_name:
+                    company_str = str(company_name).strip()
+                    if company_str and company_str.lower() not in ["n/a", "none", "null", "", "company"]:
+                        transformed_job["company_name"] = company_str
+                        # Debug: print first few company names to verify
+                        if len(transformed_jobs) < 5:
+                            print(f"   ✓ Mapped company: '{company_str}' -> company_name")
+                    elif len(transformed_jobs) < 5:
+                        print(f"   ⚠ Skipped invalid company value: '{company_str}'")
+                elif len(transformed_jobs) < 5:
+                    print(f"   ⚠ No company field found in job data")
+
                 # Custom transformations for jobs table schema
                 if table_name == "jobs":
                     # Map interval to salary_type BEFORE other transformations
@@ -303,17 +330,8 @@ if len(jobs) > 0:
                     transformed_job.pop("min_amount", None)
                     transformed_job.pop("max_amount", None)
 
-                    # Map company to company_name if company_name field exists in table
-                    # (We'll check allowed_fields later to see if company_name is allowed)
-                    if "company" in transformed_job and transformed_job.get("company"):
-                        # Try to preserve company name - map to company_name if that field exists
-                        # Otherwise we'll remove it since jobs table uses company_id (UUID FK)
-                        company_name = transformed_job.get("company")
-                        # We'll check if company_name is in allowed_fields below
-                        if company_name:
-                            transformed_job["company_name"] = company_name
-                    
                     # Remove fields that don't exist in jobs table (including interval)
+                    # Note: company_name was already mapped above, so we remove "company" here
                     fields_to_remove = [
                         "site",
                         "job_url_direct",
