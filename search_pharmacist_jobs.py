@@ -215,11 +215,19 @@ if len(jobs) > 0:
                             else:
                                 transformed_job["salary_type"] = "yearly"  # Default
 
-                    # Map job_url to application_url and remove job_url
-                    if "job_url" in transformed_job and "application_url" not in transformed_job:
-                        transformed_job["application_url"] = transformed_job["job_url"]
-                    # Always remove job_url for jobs table (column doesn't exist)
+                    # Map job_url or job_url_direct to application_url
+                    # Prefer job_url_direct if available (more direct link to application)
+                    if "application_url" not in transformed_job:
+                        if "job_url_direct" in transformed_job and transformed_job.get("job_url_direct"):
+                            # Use job_url_direct if it has a value
+                            transformed_job["application_url"] = transformed_job["job_url_direct"]
+                        elif "job_url" in transformed_job and transformed_job.get("job_url"):
+                            # Fall back to job_url if job_url_direct is not available
+                            transformed_job["application_url"] = transformed_job["job_url"]
+                    
+                    # Always remove job_url and job_url_direct for jobs table (columns don't exist)
                     transformed_job.pop("job_url", None)
+                    transformed_job.pop("job_url_direct", None)
 
                     # Generate slug from title if not present
                     if "slug" not in transformed_job and "title" in transformed_job:
